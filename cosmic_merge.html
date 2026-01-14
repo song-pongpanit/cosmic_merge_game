@@ -278,16 +278,16 @@
 
 <script>
     const PLANETS = [
-        { name: "ดวงจันทร์", radius: 16, color: '#d1d1d1', score: 2, detail: 'crater' },
-        { name: "ดาวพุธ", radius: 24, color: '#b5a8a2', score: 4, detail: 'crater' },
-        { name: "ดาวอังคาร", radius: 34, color: '#e27b58', score: 8, detail: 'spots' },
-        { name: "ดาวศุกร์", radius: 44, color: '#e3bb76', score: 16, detail: 'clouds' },
-        { name: "โลก", radius: 56, color: '#4b92db', score: 32, detail: 'earth' },
-        { name: "ดาวเนปจูน", radius: 72, color: '#3e54e8', score: 64, detail: 'storm' },
-        { name: "ดาวยูเรนัส", radius: 88, color: '#b8e3e4', score: 128, detail: 'ring_vertical' },
-        { name: "ดาวเสาร์", radius: 105, color: '#ead6b8', score: 256, detail: 'ring' },
-        { name: "ดาวพฤหัส", radius: 125, color: '#d39c7e', score: 512, detail: 'jupiter' },
-        { name: "ดวงอาทิตย์", radius: 145, color: '#ffcc33', score: 1024, detail: 'sun' }
+        { name: "ดวงจันทร์", radius: 16, color: '#d1d1d1', score: 2, detail: 'crater', personality: 'sleeping' },
+        { name: "ดาวพุธ", radius: 24, color: '#b5a8a2', score: 4, detail: 'crater', personality: 'shy' },
+        { name: "ดาวอังคาร", radius: 34, color: '#e27b58', score: 8, detail: 'spots', personality: 'angry' },
+        { name: "ดาวศุกร์", radius: 44, color: '#e3bb76', score: 16, detail: 'clouds', personality: 'happy' },
+        { name: "โลก", radius: 56, color: '#4b92db', score: 32, detail: 'earth', personality: 'cool' },
+        { name: "ดาวเนปจูน", radius: 72, color: '#3e54e8', score: 64, detail: 'storm', personality: 'dizzy' },
+        { name: "ดาวยูเรนัส", radius: 88, color: '#b8e3e4', score: 128, detail: 'ring_vertical', personality: 'nerd' },
+        { name: "ดาวเสาร์", radius: 105, color: '#ead6b8', score: 256, detail: 'ring', personality: 'fancy' },
+        { name: "ดาวพฤหัส", radius: 125, color: '#d39c7e', score: 512, detail: 'jupiter', personality: 'king' },
+        { name: "ดวงอาทิตย์", radius: 145, color: '#ffcc33', score: 1024, detail: 'sun', personality: 'blush' }
     ];
 
     let engine, render, runner, currentPlanet = null, nextPlanetIndex = 0, score = 0, isGameOver = false, canDrop = true, stars = [], playerName = "Unknown Explorer", lastMouseX = 200;
@@ -397,38 +397,137 @@
         ctx.translate(x, y);
         ctx.rotate(angle);
         ctx.globalAlpha = opacity;
+        
+        // รัศมีแสงรอบๆ
         ctx.shadowBlur = type.radius * 0.4;
         ctx.shadowColor = type.color;
+        
+        // วาดตัวดาวหลัก
         ctx.fillStyle = type.color;
         ctx.beginPath(); ctx.arc(0, 0, type.radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
+        
+        // วาดลวดลายพื้นผิว
         ctx.save();
         ctx.clip();
         if (type.detail === 'crater') {
             ctx.fillStyle = 'rgba(0,0,0,0.1)';
             ctx.beginPath(); ctx.arc(-type.radius*0.3, -type.radius*0.2, type.radius*0.2, 0, 7); ctx.fill();
             ctx.beginPath(); ctx.arc(type.radius*0.4, type.radius*0.3, type.radius*0.15, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, type.radius*0.5, type.radius*0.1, 0, 7); ctx.fill();
         } else if (type.detail === 'earth') {
             ctx.fillStyle = '#44aa44';
             ctx.beginPath(); ctx.ellipse(-5, -5, type.radius*0.7, type.radius*0.4, 0.5, 0, 7); ctx.fill();
             ctx.beginPath(); ctx.ellipse(10, 10, type.radius*0.5, type.radius*0.6, -0.2, 0, 7); ctx.fill();
-        } else if (type.detail === 'jupiter' || type.detail === 'clouds') {
-            ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = type.radius * 0.2;
-            for(let i=-2; i<=2; i++) { ctx.beginPath(); ctx.moveTo(-type.radius, i*type.radius*0.3); ctx.lineTo(type.radius, i*type.radius*0.3); ctx.stroke(); }
+            ctx.beginPath(); ctx.ellipse(-15, 20, type.radius*0.3, type.radius*0.2, 0, 0, 7); ctx.fill();
+        } else if (type.detail === 'jupiter' || type.detail === 'clouds' || type.detail === 'storm') {
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = type.radius * 0.15;
+            for(let i=-3; i<=3; i++) { 
+                ctx.beginPath(); 
+                ctx.moveTo(-type.radius, i*type.radius*0.25); 
+                ctx.lineTo(type.radius, i*type.radius*0.25); 
+                ctx.stroke(); 
+            }
+            if(type.detail === 'jupiter' || type.detail === 'storm') {
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.beginPath(); ctx.arc(type.radius*0.4, type.radius*0.3, type.radius*0.2, 0, 7); ctx.fill();
+            }
         }
         ctx.restore();
-        ctx.fillStyle = '#222';
-        const eyeSize = Math.max(2, type.radius * 0.1);
+
+        // แก้ไขตำแหน่งตาและปากให้ดูสมดุล (Eyes and Mouth)
+        const eyeSize = Math.max(1.5, type.radius * 0.1);
         const eyeSpace = type.radius * 0.3;
-        ctx.beginPath(); ctx.arc(-eyeSpace, -type.radius*0.05, eyeSize, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.arc(eyeSpace, -type.radius*0.05, eyeSize, 0, 7); ctx.fill();
-        ctx.strokeStyle = '#222'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(0, type.radius*0.05, eyeSpace * 0.6, 0.2, Math.PI - 0.2); ctx.stroke();
+        const faceY = -type.radius * 0.05; // ขยับหน้าลงมานิดนึงให้ดูไม่ลอยเกินไป
+        
+        ctx.fillStyle = '#222';
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = Math.max(1, type.radius * 0.06);
+        ctx.lineCap = 'round';
+
+        switch(type.personality) {
+            case 'sleeping': // ดวงจันทร์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, Math.PI, 0); ctx.stroke();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, Math.PI, 0); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.5, 0, Math.PI*2); ctx.fill();
+                break;
+            case 'shy': // ดาวพุธ
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(255, 100, 100, 0.4)';
+                ctx.beginPath(); ctx.ellipse(-eyeSpace - eyeSize, faceY + eyeSize, eyeSize, eyeSize*0.5, 0, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(eyeSpace + eyeSize, faceY + eyeSize, eyeSize, eyeSize*0.5, 0, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.5, 0, Math.PI); ctx.stroke();
+                break;
+            case 'angry': // ดาวอังคาร
+                ctx.beginPath(); ctx.moveTo(-eyeSpace-eyeSize, faceY-eyeSize); ctx.lineTo(-eyeSpace+eyeSize, faceY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(eyeSpace+eyeSize, faceY-eyeSize); ctx.lineTo(eyeSpace-eyeSize, faceY); ctx.stroke();
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY+eyeSize*0.6, eyeSize, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY+eyeSize*0.6, eyeSize, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize * 1.8, eyeSize * 0.8, Math.PI, 0); ctx.stroke();
+                break;
+            case 'happy': // ดาวศุกร์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.6, 0.2, Math.PI - 0.2); ctx.stroke();
+                break;
+            case 'cool': // โลก
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.fillRect(-eyeSpace-eyeSize, faceY-eyeSize*1.5, eyeSpace*2+eyeSize*2, eyeSize*0.4); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.7, 0, Math.PI); ctx.stroke();
+                break;
+            case 'dizzy': // เนปจูน
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-eyeSize*0.5, faceY+eyeSize*1.5); ctx.lineTo(eyeSize*0.5, faceY+eyeSize*2); ctx.lineTo(-eyeSize*0.5, faceY+eyeSize*2.5); ctx.stroke();
+                break;
+            case 'nerd': // ยูเรนัส
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.6, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.6, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-eyeSpace+eyeSize*1.6, faceY); ctx.lineTo(eyeSpace-eyeSize*1.6, faceY); ctx.stroke();
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*0.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*0.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.7, 0.4, Math.PI - 0.4); ctx.stroke();
+                break;
+            case 'fancy': // เสาร์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-eyeSpace-eyeSize, faceY-eyeSize); ctx.lineTo(-eyeSpace-eyeSize*1.5, faceY-eyeSize*1.5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(eyeSpace+eyeSize, faceY-eyeSize); ctx.lineTo(eyeSpace+eyeSize*1.5, faceY-eyeSize*1.5); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize * 0.8, eyeSpace * 0.5, 0, Math.PI); ctx.stroke();
+                break;
+            case 'king': // พฤหัส
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.5, 0, Math.PI); ctx.stroke();
+                // มงกุฎ
+                ctx.fillStyle = '#ffcc33';
+                ctx.beginPath(); ctx.moveTo(-eyeSize*2, faceY-type.radius*0.6); ctx.lineTo(-eyeSize, faceY-type.radius*0.4); ctx.lineTo(0, faceY-type.radius*0.6); ctx.lineTo(eyeSize, faceY-type.radius*0.4); ctx.lineTo(eyeSize*2, faceY-type.radius*0.6); ctx.lineTo(eyeSize*2, faceY-type.radius*0.3); ctx.lineTo(-eyeSize*2, faceY-type.radius*0.3); ctx.fill();
+                break;
+            case 'sun': // ดวงอาทิตย์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.3, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ff6666';
+                ctx.beginPath(); ctx.arc(-eyeSpace-eyeSize*1.5, faceY+eyeSize, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace+eyeSize*1.5, faceY+eyeSize, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.7, 0, Math.PI); ctx.stroke();
+                break;
+            default:
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.6, 0.2, Math.PI - 0.2); ctx.stroke();
+        }
+
         ctx.restore();
+        
+        // วาดวงแหวน (ให้วาดทับหน้าบางส่วนเพื่อความมิติ)
         if(type.detail.includes('ring')) {
             ctx.save(); ctx.translate(x, y);
             if(type.detail === 'ring_vertical') ctx.rotate(Math.PI/2);
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = type.radius * 0.1;
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = type.radius * 0.08;
             ctx.beginPath(); ctx.ellipse(0, 0, type.radius * 1.6, type.radius * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
             ctx.restore();
         }
