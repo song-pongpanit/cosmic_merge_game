@@ -29,7 +29,7 @@
         window.gameDb = { db, appId, auth, signInWithCustomToken, signInAnonymously, onAuthStateChanged };
     </script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #050515; font-family: 'Kanit', sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100svh; width: 100vw; touch-action: none; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #050515; font-family: 'Kanit', sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
         
         #game-container { 
             position: relative; 
@@ -175,47 +175,10 @@
         
         .guide-line { position: absolute; top: 0; width: 1px; height: 100%; background: linear-gradient(to bottom, rgba(100, 150, 255, 0.4), transparent); pointer-events: none; z-index: 1; display: none; }
         #current-planet-name { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); font-size: 14px; color: rgba(255,255,255,0.5); pointer-events: none; }
-    
-
-        /* --- Portrait lock overlay (ป้องกันเล่นแนวนอน) --- */
-        #rotate-lock{
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.85);
-            color: #fff;
-            text-align: center;
-            padding: 24px;
-            cursor: auto;
-        }
-        #rotate-lock .rotate-card{
-            max-width: 360px;
-            width: 100%;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.18);
-            border-radius: 20px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
-        #rotate-lock .rotate-icon{ font-size: 52px; margin-bottom: 12px; }
-        #rotate-lock .rotate-text{ font-size: 16px; line-height: 1.45; color: rgba(255,255,255,0.95); }
-
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;600&display=swap" rel="stylesheet">
 </head>
 <body>
-
-
-<div id="rotate-lock" aria-hidden="true">
-    <div class="rotate-card">
-        <div class="rotate-icon">📱</div>
-        <div class="rotate-text">กรุณาหมุนกลับเป็นแนวตั้งเพื่อเล่นเกม</div>
-        <div class="rotate-text" style="margin-top:10px; font-size:12px; opacity:0.75;">(โหมดแนวนอนไม่รองรับ)</div>
-    </div>
-</div>
 
 <div id="game-container">
     <div id="login-screen" class="overlay-screen">
@@ -329,53 +292,7 @@
 
     let engine, render, runner, currentPlanet = null, nextPlanetIndex = 0, score = 0, isGameOver = false, canDrop = true, stars = [], playerName = "Unknown Explorer", lastMouseX = 200;
     
-    
-
-    // --- Responsive scaling (ย่อ/ขยายให้พอดีจอมือถือ) ---
-    let currentScale = 1;
-
-    function fitGameToScreen() {
-        const container = document.getElementById('game-container');
-        if (!container) return;
-
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-
-        // เผื่อขอบนิดหน่อย กันชนขอบจอ
-        const padding = 16;
-        const scale = Math.min((vw - padding) / 400, (vh - padding) / 600, 1);
-
-        currentScale = Math.max(0.1, scale);
-        container.style.transform = `scale(${currentScale})`;
-        container.style.transformOrigin = 'center center';
-    }
-
-    // --- Portrait lock (พยายามล็อก + บังหน้าถ้าหมุนแนวนอน) ---
-    async function tryLockPortrait() {
-        try {
-            if (screen.orientation && screen.orientation.lock) {
-                await screen.orientation.lock('portrait');
-            }
-        } catch (e) {
-            // iOS/บางเบราว์เซอร์จะล็อกไม่ได้ ไม่เป็นไร (เรามี overlay กันอยู่แล้ว)
-        }
-    }
-
-    function enforcePortraitUI() {
-        const overlay = document.getElementById('rotate-lock');
-        if (!overlay) return;
-
-        const isLandscape =
-            (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) ||
-            (window.innerWidth > window.innerHeight);
-
-        if (isLandscape) {
-            overlay.style.display = 'flex';
-        } else {
-            overlay.style.display = 'none';
-        }
-    }
-async function initFirebaseLocal() {
+    async function initFirebaseLocal() {
         const { auth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.gameDb;
         const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         try {
@@ -414,12 +331,8 @@ async function initFirebaseLocal() {
     function init() {
         initFirebaseLocal();
         createLoginStars();
-
-        fitGameToScreen();
-        enforcePortraitUI();
-        window.addEventListener('resize', () => { fitGameToScreen(); enforcePortraitUI(); }, { passive: true });
-        window.addEventListener('orientationchange', () => { fitGameToScreen(); enforcePortraitUI(); }, { passive: true });
-const container = document.getElementById('game-container');
+        
+        const container = document.getElementById('game-container');
         for(let i=0; i<60; i++) stars.push({ x: Math.random() * 400, y: Math.random() * 600, size: Math.random() * 1.5 });
         
         engine = Matter.Engine.create();
@@ -704,11 +617,7 @@ const container = document.getElementById('game-container');
         window.saveScoreToCloud(score, playerName);
     }
 
-    document.getElementById('start-btn').onclick = async () => {
-        await tryLockPortrait();
-        enforcePortraitUI();
-        if (document.getElementById('rotate-lock')?.style.display === 'flex') return;
-
+    document.getElementById('start-btn').onclick = () => {
         const input = document.getElementById('player-name-input');
         if (!input.value.trim()) { 
             input.style.borderColor = "#ff5555";
@@ -732,7 +641,7 @@ const container = document.getElementById('game-container');
     const containerElem = document.getElementById('game-container');
     containerElem.addEventListener('mousemove', (e) => {
         const rect = containerElem.getBoundingClientRect();
-        lastMouseX = (e.clientX - rect.left) / currentScale;
+        lastMouseX = e.clientX - rect.left;
         
         if (!currentPlanet || isGameOver) return;
         const radius = PLANETS[currentPlanet.index].radius;
@@ -740,27 +649,6 @@ const container = document.getElementById('game-container');
         currentPlanet.x = x;
         document.getElementById('guide').style.left = x + 'px';
     });
-
-    // รองรับมือถือ: ลากนิ้วเลื่อนตำแหน่ง + แตะเพื่อปล่อยดาว
-    containerElem.addEventListener('touchmove', (e) => {
-        if (!e.touches || e.touches.length === 0) return;
-        const t = e.touches[0];
-        const rect = containerElem.getBoundingClientRect();
-        lastMouseX = (t.clientX - rect.left) / currentScale;
-
-        if (!currentPlanet || isGameOver) return;
-        const radius = PLANETS[currentPlanet.index].radius;
-        const x = Math.max(radius, Math.min(400 - radius, lastMouseX));
-        currentPlanet.x = x;
-        document.getElementById('guide').style.left = x + 'px';
-    }, { passive: true });
-
-    containerElem.addEventListener('touchstart', (e) => {
-        // ป้องกันดับเบิลแท็ปซูม/การสกอลล์หน้า
-        e.preventDefault();
-        dropPlanet();
-    }, { passive: false });
-
     containerElem.addEventListener('click', dropPlanet);
 
     window.onload = init;
