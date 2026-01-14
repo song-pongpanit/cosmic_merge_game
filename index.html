@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Merge - ผจญภัยระบบสุริยะ</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAoO3mLc6cau4GsgOXQ-KFBsaXNwg8xYcI",
+            authDomain: "song-paysolutions.firebaseapp.com",
+            projectId: "song-paysolutions",
+            storageBucket: "song-paysolutions.firebasestorage.app",
+            messagingSenderId: "602518075045",
+            appId: "1:602518075045:web:b4c5a65904351d51babf4c",
+            measurementId: "G-2JYVRLJ721"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosmic-merge-v1';
+
+        window.gameDb = { db, appId, auth, signInWithCustomToken, signInAnonymously, onAuthStateChanged };
+    </script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #050515; font-family: 'Kanit', sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        #game-container { 
+            position: relative; 
+            width: 400px; 
+            height: 600px; 
+            box-shadow: 0 0 50px rgba(0, 100, 255, 0.2); 
+            border: 4px solid rgba(255, 255, 255, 0.05); 
+            border-radius: 24px; 
+            overflow: hidden; 
+            background: #050515;
+            cursor: none; 
+        }
+        
+        canvas { display: block; }
+
+        .space-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, #1a1a40 0%, #050515 100%);
+            z-index: 0;
+        }
+
+        .nebula {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(100, 50, 255, 0.15) 0%, transparent 70%);
+            filter: blur(50px);
+            border-radius: 50%;
+            animation: drift 20s infinite alternate;
+        }
+
+        @keyframes drift {
+            from { transform: translate(-20%, -20%); }
+            to { transform: translate(20%, 20%); }
+        }
+
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; z-index: 5; opacity: 0; transition: opacity 0.5s; }
+        
+        .score-container { 
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.05); 
+            backdrop-filter: blur(10px); 
+            padding: 12px; 
+            border-radius: 18px; 
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 150px; 
+            height: 80px; 
+            box-sizing: border-box;
+        }
+        #score-label { font-size: 11px; color: #aaaaff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        #score { font-size: 20px; font-weight: bold; color: #fff; text-shadow: 0 0 10px rgba(0,200,255,0.5); line-height: 1; }
+        
+        .next-container { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            text-align: center; 
+            background: rgba(255, 255, 255, 0.05); 
+            padding: 12px; 
+            border-radius: 18px; 
+            width: 120px; 
+            height: 80px; 
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+        
+        #surrender-btn { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            pointer-events: auto; 
+            background: linear-gradient(135deg, #6644ff, #8844ff); 
+            border: none;
+            color: white; 
+            width: 32px;
+            height: 32px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            z-index: 20;
+            box-shadow: 0 4px 15px rgba(100, 50, 255, 0.4);
+        }
+        #surrender-btn:hover { transform: scale(1.1); filter: brightness(1.2); }
+
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 20, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; padding: 30px; box-sizing: border-box; text-align: center; cursor: auto; }
+        #login-screen { display: flex; background: transparent; }
+        #game-over { display: none; background: rgba(5, 5, 20, 0.95); }
+        
+        .login-content { position: relative; z-index: 2; width: 100%; display: flex; flex-direction: column; align-items: center; }
+        
+        input { 
+            background: rgba(255,255,255,0.08); 
+            border: 1px solid rgba(100, 100, 255, 0.4); 
+            padding: 14px 20px; 
+            border-radius: 15px; 
+            color: white; 
+            font-family: 'Kanit', sans-serif; 
+            font-size: 16px; 
+            margin: 25px 0; 
+            width: 85%; 
+            outline: none; 
+            transition: all 0.3s;
+            text-align: center;
+        }
+        input:focus { border-color: #8888ff; background: rgba(255,255,255,0.15); box-shadow: 0 0 15px rgba(100,100,255,0.2); }
+        
+        .leaderboard { width: 100%; margin: 15px 0; background: rgba(255,255,255,0.05); border-radius: 15px; padding: 15px; font-size: 12px; max-height: 250px; overflow-y: auto; }
+        .leaderboard-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .item-me { color: #ffff00; font-weight: bold; }
+        .your-result { margin: 10px 0; padding: 10px; background: rgba(85, 85, 255, 0.2); border-radius: 10px; width: 100%; }
+        
+        button.primary-btn { 
+            background: linear-gradient(135deg, #4444ff, #8844ff); 
+            border: none; 
+            color: white; 
+            padding: 16px 45px; 
+            border-radius: 30px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 18px; 
+            transition: all 0.3s; 
+            box-shadow: 0 4px 20px rgba(80, 80, 255, 0.4);
+        }
+        button.primary-btn:hover { transform: translateY(-3px) scale(1.05); filter: brightness(1.2); box-shadow: 0 8px 25px rgba(80, 80, 255, 0.5); }
+        
+        .guide-line { position: absolute; top: 0; width: 1px; height: 100%; background: linear-gradient(to bottom, rgba(100, 150, 255, 0.4), transparent); pointer-events: none; z-index: 1; display: none; }
+        #current-planet-name { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); font-size: 14px; color: rgba(255,255,255,0.5); pointer-events: none; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="game-container">
+    <div id="login-screen" class="overlay-screen">
+        <div class="space-bg" id="login-space-bg">
+            <div class="nebula" style="top: 10%; left: 10%;"></div>
+            <div class="nebula" style="bottom: 10%; right: 10%; background: radial-gradient(circle, rgba(255, 50, 150, 0.1) 0%, transparent 70%);"></div>
+        </div>
+        <div class="login-content">
+            <h1 style="color: #fff; font-size: 36px; margin-bottom: 0; text-shadow: 0 0 20px rgba(100, 100, 255, 0.8);">Solar System</h1>
+            <h2 style="color: #8888ff; font-size: 18px; margin-top: 0; font-weight: 300; letter-spacing: 4px; text-transform: uppercase;">Merge Adventure</h2>
+            
+            <div style="width: 60px; height: 2px; background: linear-gradient(90deg, transparent, #8888ff, transparent); margin: 20px 0;"></div>
+            
+            <p style="font-size: 14px; color: #aaaaff; margin-bottom: 0;">ยินดีต้อนรับนักสำรวจ</p>
+            <input type="text" id="player-name-input" placeholder="พิมพ์ชื่อของคุณที่นี่..." maxlength="12">
+            <button id="start-btn" class="primary-btn">เริ่มการเดินทาง</button>
+            
+            <p style="font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 40px;">รวมดวงดาวเพื่อค้นหาความลับของจักรวาล</p>
+        </div>
+    </div>
+
+    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">⚐</button>
+
+    <div id="guide" class="guide-line"></div>
+    <div id="current-planet-name"></div>
+    
+    <div id="ui-layer">
+        <div class="score-container">
+            <span id="score-label">คะแนนสะสม</span>
+            <div id="score">0</div>
+        </div>
+        <div class="next-container">
+            <div style="font-size: 11px; color: #aaaaff; margin-bottom: 4px;">ดวงถัดไป</div>
+            <canvas id="next-canvas" width="100" height="100" style="width:50px; height:50px;"></canvas>
+        </div>
+    </div>
+
+    <div id="game-over" class="overlay-screen">
+        <h2 style="margin: 0; color: #ff5555; font-size: 24px;">ภารกิจสิ้นสุด</h2>
+        <div class="leaderboard" id="leaderboard-list">
+            <div style="text-align: center; padding: 10px;">กำลังโหลดตารางอันดับ...</div>
+        </div>
+        <div class="your-result">
+            <span style="font-size: 12px; color: #aaaaff;">คะแนนรอบนี้ของ <span id="display-my-name" style="color: #fff;"></span>:</span>
+            <div id="final-score" style="font-size: 24px; font-weight: bold; color: #fff;">0</div>
+        </div>
+        <button class="primary-btn" onclick="location.reload()">กลับสู่หน้าหลัก</button>
+    </div>
+</div>
+
+<script type="module">
+    import { collection, addDoc, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.saveScoreToCloud = async (scoreVal, nameVal) => {
+        const { db, appId, auth } = window.gameDb;
+        if (!auth.currentUser) return;
+        try {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'scores'), {
+                uid: auth.currentUser.uid,
+                name: nameVal,
+                score: scoreVal,
+                timestamp: Date.now()
+            });
+        } catch (e) { console.error("Firestore Save Error:", e); }
+    };
+
+    window.listenToLeaderboard = () => {
+        const { db, appId } = window.gameDb;
+        const q = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+        onSnapshot(q, (snapshot) => {
+            let allScores = [];
+            snapshot.forEach(doc => allScores.push(doc.data()));
+            allScores.sort((a, b) => b.score - a.score);
+            const topScores = allScores.slice(0, 10);
+            
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = '<div style="text-align: center; color: #aaaaff; margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">ทำเนียบ TOP 10 นักสำรวจ</div>';
+            
+            if(topScores.length === 0) {
+                list.innerHTML += '<div style="text-align:center; padding:10px;">ยังไม่มีข้อมูลอันดับ</div>';
+                return;
+            }
+            
+            topScores.forEach((s, i) => {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                const isMe = s.uid === window.gameDb.auth.currentUser?.uid;
+                if (isMe) item.classList.add('item-me');
+                item.innerHTML = `<span>${i+1}. ${s.name || 'Unknown'}</span> <span>${s.score}</span>`;
+                list.appendChild(item);
+            });
+        }, (err) => {
+            console.error("Leaderboard Snapshot Error:", err);
+        });
+    };
+</script>
+
+<script>
+    const PLANETS = [
+        { name: "ดวงจันทร์", radius: 16, color: '#d1d1d1', score: 2, detail: 'crater', personality: 'sleeping' },
+        { name: "ดาวพุธ", radius: 24, color: '#b5a8a2', score: 4, detail: 'crater', personality: 'shy' },
+        { name: "ดาวอังคาร", radius: 34, color: '#e27b58', score: 8, detail: 'spots', personality: 'angry' },
+        { name: "ดาวศุกร์", radius: 44, color: '#e3bb76', score: 16, detail: 'clouds', personality: 'happy' },
+        { name: "โลก", radius: 56, color: '#4b92db', score: 32, detail: 'earth', personality: 'cool' },
+        { name: "ดาวเนปจูน", radius: 72, color: '#3e54e8', score: 64, detail: 'storm', personality: 'dizzy' },
+        { name: "ดาวยูเรนัส", radius: 88, color: '#b8e3e4', score: 128, detail: 'ring_vertical', personality: 'nerd' },
+        { name: "ดาวเสาร์", radius: 105, color: '#ead6b8', score: 256, detail: 'ring', personality: 'fancy' },
+        { name: "ดาวพฤหัส", radius: 125, color: '#d39c7e', score: 512, detail: 'jupiter', personality: 'king' },
+        { name: "ดวงอาทิตย์", radius: 145, color: '#ffcc33', score: 1024, detail: 'sun', personality: 'blush' }
+    ];
+
+    let engine, render, runner, currentPlanet = null, nextPlanetIndex = 0, score = 0, isGameOver = false, canDrop = true, stars = [], playerName = "Unknown Explorer", lastMouseX = 200;
+    
+    async function initFirebaseLocal() {
+        const { auth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.gameDb;
+        const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        try {
+            if (token) {
+                try { await signInWithCustomToken(auth, token); } catch (e) { await signInAnonymously(auth); }
+            } else { await signInAnonymously(auth); }
+            onAuthStateChanged(auth, (user) => { if (user) window.listenToLeaderboard(); });
+        } catch (e) { console.error(e); }
+    }
+
+    function createLoginStars() {
+        const bg = document.getElementById('login-space-bg');
+        if (!bg) return;
+        for(let i=0; i<80; i++) {
+            const star = document.createElement('div');
+            const size = Math.random() * 2 + 1;
+            star.style.position = 'absolute';
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.background = 'white';
+            star.style.borderRadius = '50%';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.opacity = Math.random();
+            star.style.boxShadow = `0 0 ${size*2}px white`;
+            star.animate([
+                { opacity: 0.2 }, { opacity: 1 }, { opacity: 0.2 }
+            ], {
+                duration: 2000 + Math.random() * 3000,
+                iterations: Infinity
+            });
+            bg.appendChild(star);
+        }
+    }
+
+    function init() {
+        initFirebaseLocal();
+        createLoginStars();
+        
+        const container = document.getElementById('game-container');
+        for(let i=0; i<60; i++) stars.push({ x: Math.random() * 400, y: Math.random() * 600, size: Math.random() * 1.5 });
+        
+        engine = Matter.Engine.create();
+        engine.world.gravity.y = 1.2;
+
+        render = Matter.Render.create({
+            element: container,
+            engine: engine,
+            options: { width: 400, height: 600, wireframes: false, background: 'transparent' }
+        });
+        
+        const wallOptions = { isStatic: true, friction: 0.8, restitution: 0.2 };
+        Matter.World.add(engine.world, [
+            Matter.Bodies.rectangle(200, 615, 400, 30, wallOptions),
+            Matter.Bodies.rectangle(-15, 300, 30, 600, wallOptions),
+            Matter.Bodies.rectangle(415, 300, 30, 600, wallOptions)
+        ]);
+        
+        Matter.Render.run(render);
+        runner = Matter.Runner.create();
+        Matter.Runner.run(runner, engine);
+
+        Matter.Events.on(render, 'afterRender', () => {
+            const ctx = render.context;
+            ctx.fillStyle = "white";
+            stars.forEach(s => {
+                ctx.globalAlpha = 0.2 + Math.abs(Math.sin(Date.now() * 0.001 + s.x)) * 0.5;
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            Matter.Composite.allBodies(engine.world).forEach(body => {
+                if (body.label?.startsWith('planet_')) {
+                    const index = parseInt(body.label.split('_')[1]);
+                    drawPlanet(ctx, body.position.x, body.position.y, body.angle, PLANETS[index]);
+                }
+            });
+            if (currentPlanet && !isGameOver) {
+                drawPlanet(ctx, currentPlanet.x, currentPlanet.y, 0, PLANETS[currentPlanet.index], 0.7);
+            }
+        });
+
+        Matter.Events.on(engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                const { bodyA, bodyB } = pair;
+                if (bodyA.label === bodyB.label && bodyA.label?.startsWith('planet_')) {
+                    const index = parseInt(bodyA.label.split('_')[1]);
+                    if (index < PLANETS.length - 1) {
+                        if (Matter.Composite.get(engine.world, bodyA.id, 'body') && Matter.Composite.get(engine.world, bodyB.id, 'body')) {
+                            mergePlanets(bodyA, bodyB, index);
+                        }
+                    }
+                }
+            });
+        });
+
+        setInterval(checkGameOver, 1000);
+        setupNextPlanet();
+    }
+
+    function drawPlanet(ctx, x, y, angle, type, opacity = 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.globalAlpha = opacity;
+        
+        // รัศมีแสงรอบๆ
+        ctx.shadowBlur = type.radius * 0.4;
+        ctx.shadowColor = type.color;
+        
+        // วาดตัวดาวหลัก
+        ctx.fillStyle = type.color;
+        ctx.beginPath(); ctx.arc(0, 0, type.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // วาดลวดลายพื้นผิว
+        ctx.save();
+        ctx.clip();
+        if (type.detail === 'crater') {
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            ctx.beginPath(); ctx.arc(-type.radius*0.3, -type.radius*0.2, type.radius*0.2, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(type.radius*0.4, type.radius*0.3, type.radius*0.15, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, type.radius*0.5, type.radius*0.1, 0, 7); ctx.fill();
+        } else if (type.detail === 'earth') {
+            ctx.fillStyle = '#44aa44';
+            ctx.beginPath(); ctx.ellipse(-5, -5, type.radius*0.7, type.radius*0.4, 0.5, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(10, 10, type.radius*0.5, type.radius*0.6, -0.2, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(-15, 20, type.radius*0.3, type.radius*0.2, 0, 0, 7); ctx.fill();
+        } else if (type.detail === 'jupiter' || type.detail === 'clouds' || type.detail === 'storm') {
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = type.radius * 0.15;
+            for(let i=-3; i<=3; i++) { 
+                ctx.beginPath(); 
+                ctx.moveTo(-type.radius, i*type.radius*0.25); 
+                ctx.lineTo(type.radius, i*type.radius*0.25); 
+                ctx.stroke(); 
+            }
+            if(type.detail === 'jupiter' || type.detail === 'storm') {
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.beginPath(); ctx.arc(type.radius*0.4, type.radius*0.3, type.radius*0.2, 0, 7); ctx.fill();
+            }
+        }
+        ctx.restore();
+
+        // แก้ไขตำแหน่งตาและปากให้ดูสมดุล (Eyes and Mouth)
+        const eyeSize = Math.max(1.5, type.radius * 0.1);
+        const eyeSpace = type.radius * 0.3;
+        const faceY = -type.radius * 0.05; // ขยับหน้าลงมานิดนึงให้ดูไม่ลอยเกินไป
+        
+        ctx.fillStyle = '#222';
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = Math.max(1, type.radius * 0.06);
+        ctx.lineCap = 'round';
+
+        switch(type.personality) {
+            case 'sleeping': // ดวงจันทร์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, Math.PI, 0); ctx.stroke();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, Math.PI, 0); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.5, 0, Math.PI*2); ctx.fill();
+                break;
+            case 'shy': // ดาวพุธ
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(255, 100, 100, 0.4)';
+                ctx.beginPath(); ctx.ellipse(-eyeSpace - eyeSize, faceY + eyeSize, eyeSize, eyeSize*0.5, 0, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(eyeSpace + eyeSize, faceY + eyeSize, eyeSize, eyeSize*0.5, 0, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.5, 0, Math.PI); ctx.stroke();
+                break;
+            case 'angry': // ดาวอังคาร
+                ctx.beginPath(); ctx.moveTo(-eyeSpace-eyeSize, faceY-eyeSize); ctx.lineTo(-eyeSpace+eyeSize, faceY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(eyeSpace+eyeSize, faceY-eyeSize); ctx.lineTo(eyeSpace-eyeSize, faceY); ctx.stroke();
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY+eyeSize*0.6, eyeSize, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY+eyeSize*0.6, eyeSize, 0, 7); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize * 1.8, eyeSize * 0.8, Math.PI, 0); ctx.stroke();
+                break;
+            case 'happy': // ดาวศุกร์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.6, 0.2, Math.PI - 0.2); ctx.stroke();
+                break;
+            case 'cool': // โลก
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.fillRect(-eyeSpace-eyeSize, faceY-eyeSize*1.5, eyeSpace*2+eyeSize*2, eyeSize*0.4); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.7, 0, Math.PI); ctx.stroke();
+                break;
+            case 'dizzy': // เนปจูน
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-eyeSize*0.5, faceY+eyeSize*1.5); ctx.lineTo(eyeSize*0.5, faceY+eyeSize*2); ctx.lineTo(-eyeSize*0.5, faceY+eyeSize*2.5); ctx.stroke();
+                break;
+            case 'nerd': // ยูเรนัส
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.6, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.6, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-eyeSpace+eyeSize*1.6, faceY); ctx.lineTo(eyeSpace-eyeSize*1.6, faceY); ctx.stroke();
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*0.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*0.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSize * 0.7, 0.4, Math.PI - 0.4); ctx.stroke();
+                break;
+            case 'fancy': // เสาร์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-eyeSpace-eyeSize, faceY-eyeSize); ctx.lineTo(-eyeSpace-eyeSize*1.5, faceY-eyeSize*1.5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(eyeSpace+eyeSize, faceY-eyeSize); ctx.lineTo(eyeSpace+eyeSize*1.5, faceY-eyeSize*1.5); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize * 0.8, eyeSpace * 0.5, 0, Math.PI); ctx.stroke();
+                break;
+            case 'king': // พฤหัส
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.5, 0, Math.PI); ctx.stroke();
+                // มงกุฎ
+                ctx.fillStyle = '#ffcc33';
+                ctx.beginPath(); ctx.moveTo(-eyeSize*2, faceY-type.radius*0.6); ctx.lineTo(-eyeSize, faceY-type.radius*0.4); ctx.lineTo(0, faceY-type.radius*0.6); ctx.lineTo(eyeSize, faceY-type.radius*0.4); ctx.lineTo(eyeSize*2, faceY-type.radius*0.6); ctx.lineTo(eyeSize*2, faceY-type.radius*0.3); ctx.lineTo(-eyeSize*2, faceY-type.radius*0.3); ctx.fill();
+                break;
+            case 'sun': // ดวงอาทิตย์
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize*1.3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize*1.3, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ff6666';
+                ctx.beginPath(); ctx.arc(-eyeSpace-eyeSize*1.5, faceY+eyeSize, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace+eyeSize*1.5, faceY+eyeSize, eyeSize*1.2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.7, 0, Math.PI); ctx.stroke();
+                break;
+            default:
+                ctx.beginPath(); ctx.arc(-eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eyeSpace, faceY, eyeSize, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, faceY + eyeSize, eyeSpace * 0.6, 0.2, Math.PI - 0.2); ctx.stroke();
+        }
+
+        ctx.restore();
+        
+        // วาดวงแหวน (ให้วาดทับหน้าบางส่วนเพื่อความมิติ)
+        if(type.detail.includes('ring')) {
+            ctx.save(); ctx.translate(x, y);
+            if(type.detail === 'ring_vertical') ctx.rotate(Math.PI/2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = type.radius * 0.08;
+            ctx.beginPath(); ctx.ellipse(0, 0, type.radius * 1.6, type.radius * 0.35, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    function setupNextPlanet() {
+        nextPlanetIndex = Math.floor(Math.random() * 4);
+        const nextCanvas = document.getElementById('next-canvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        nextCtx.clearRect(0, 0, 100, 100);
+        const type = PLANETS[nextPlanetIndex];
+        const scale = 40 / Math.max(type.radius, 40); 
+        nextCtx.save(); 
+        nextCtx.translate(50, 50); 
+        nextCtx.scale(scale, scale);
+        drawPlanet(nextCtx, 0, 0, 0, type); 
+        nextCtx.restore();
+    }
+
+    function spawnPlanet() {
+        if (isGameOver) return;
+        const radius = PLANETS[nextPlanetIndex].radius;
+        const clampedX = Math.max(radius, Math.min(400 - radius, lastMouseX));
+        
+        currentPlanet = { index: nextPlanetIndex, x: clampedX, y: 50 };
+        document.getElementById('current-planet-name').innerText = PLANETS[nextPlanetIndex].name;
+        document.getElementById('guide').style.left = clampedX + 'px';
+        setupNextPlanet();
+    }
+
+    function dropPlanet() {
+        if (!currentPlanet || !canDrop || isGameOver) return;
+        const newBody = Matter.Bodies.circle(currentPlanet.x, currentPlanet.y, PLANETS[currentPlanet.index].radius, {
+            label: `planet_${currentPlanet.index}`,
+            restitution: 0.1,
+            friction: 0.8,
+            frictionAir: 0.02,
+            render: { visible: false }
+        });
+        Matter.World.add(engine.world, newBody);
+        currentPlanet = null; canDrop = false;
+        setTimeout(() => { canDrop = true; spawnPlanet(); }, 800);
+    }
+
+    function mergePlanets(bodyA, bodyB, index) {
+        const avgVel = { x: (bodyA.velocity.x + bodyB.velocity.x) / 2, y: (bodyA.velocity.y + bodyB.velocity.y) / 2 };
+        const x = (bodyA.position.x + bodyB.position.x) / 2;
+        const y = (bodyA.position.y + bodyB.position.y) / 2;
+        Matter.World.remove(engine.world, [bodyA, bodyB]);
+        const nextIdx = index + 1;
+        const nextPlanetBody = Matter.Bodies.circle(x, y, PLANETS[nextIdx].radius, {
+            label: `planet_${nextIdx}`,
+            restitution: 0.2,
+            friction: 0.6,
+            render: { visible: false }
+        });
+        Matter.Body.setVelocity(nextPlanetBody, avgVel);
+        Matter.World.add(engine.world, nextPlanetBody);
+        score += PLANETS[nextIdx].score;
+        document.getElementById('score').innerText = score;
+        document.getElementById('game-container').style.boxShadow = `0 0 70px ${PLANETS[nextIdx].color}44`;
+        setTimeout(() => { document.getElementById('game-container').style.boxShadow = `0 0 50px rgba(0, 100, 255, 0.2)`; }, 400);
+    }
+
+    function checkGameOver() {
+        if (isGameOver || !document.getElementById('ui-layer').style.opacity || document.getElementById('ui-layer').style.opacity === "0") return;
+        Matter.Composite.allBodies(engine.world).forEach(body => {
+            if (body.label?.startsWith('planet_') && body.position.y < 110 && body.velocity.y < 0.1 && !canDrop) {
+                if (!body.gameOverTimer) body.gameOverTimer = Date.now();
+                if (Date.now() - body.gameOverTimer > 2000) triggerGameOver();
+            } else { body.gameOverTimer = null; }
+        });
+    }
+
+    function triggerGameOver() {
+        if (isGameOver) return;
+        isGameOver = true;
+        document.getElementById('ui-layer').style.opacity = "0";
+        document.getElementById('guide').style.display = "none";
+        document.getElementById('surrender-btn').style.display = "none";
+        document.getElementById('current-planet-name').style.display = "none";
+        
+        document.getElementById('game-over').style.display = 'flex';
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('display-my-name').innerText = playerName;
+        
+        window.saveScoreToCloud(score, playerName);
+    }
+
+    document.getElementById('start-btn').onclick = () => {
+        const input = document.getElementById('player-name-input');
+        if (!input.value.trim()) { 
+            input.style.borderColor = "#ff5555";
+            input.style.boxShadow = "0 0 15px rgba(255,85,85,0.3)";
+            return; 
+        }
+        playerName = input.value.trim();
+        
+        document.getElementById('login-screen').animate([
+            { opacity: 1, transform: 'scale(1)' },
+            { opacity: 0, transform: 'scale(1.1)' }
+        ], { duration: 500, fill: 'forwards' }).onfinish = () => {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('ui-layer').style.opacity = "1";
+            document.getElementById('guide').style.display = "block";
+            document.getElementById('surrender-btn').style.display = "flex";
+            spawnPlanet();
+        };
+    };
+
+    const containerElem = document.getElementById('game-container');
+    containerElem.addEventListener('mousemove', (e) => {
+        const rect = containerElem.getBoundingClientRect();
+        lastMouseX = e.clientX - rect.left;
+        
+        if (!currentPlanet || isGameOver) return;
+        const radius = PLANETS[currentPlanet.index].radius;
+        const x = Math.max(radius, Math.min(400 - radius, lastMouseX));
+        currentPlanet.x = x;
+        document.getElementById('guide').style.left = x + 'px';
+    });
+    containerElem.addEventListener('click', dropPlanet);
+
+    window.onload = init;
+    window.triggerGameOver = triggerGameOver;
+</script>
+</body>
+</html>
