@@ -458,7 +458,7 @@
 
     let isMuted = false;
 
-    function playSfx(id, volume = 0.7) {
+    function playSfx(id, volume = 0.8) {
       if (isMuted) return;
       const a = document.getElementById(id);
       if (!a) return;
@@ -871,7 +871,7 @@
       Matter.Body.setVelocity(nextPlanetBody, avgVel);
       Matter.World.add(engine.world, nextPlanetBody);
 
-      playSfx("sfx-merge", 0.35);
+      playSfx("sfx-merge", 0.25);
 
       score += PLANETS[nextIdx].score;
       document.getElementById("score").innerText = score;
@@ -912,7 +912,7 @@
     function triggerGameOver() {
       if (isGameOver) return;
 
-      playSfx("sfx-gameover", 0.8);
+      playSfx("sfx-gameover", 0.9);
       stopBgm();
 
       isGameOver = true;
