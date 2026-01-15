@@ -154,7 +154,6 @@
       box-sizing: border-box;
     }
 
-    /* ปุ่มยอมแพ้ */
     #surrender-btn {
       position: absolute;
       top: 10px;
@@ -181,7 +180,6 @@
       filter: brightness(1.2);
     }
 
-    /* ✅ ปุ่มลำโพง: ธีมเดียวกับปุ่มยอมแพ้ */
     #mute-btn {
       position: absolute;
       top: 10px;
@@ -395,7 +393,6 @@
       <button class="primary-btn" onclick="location.reload()">กลับสู่หน้าหลัก</button>
     </div>
 
-    <!-- 🔊 AUDIO FILES (อยู่โฟลเดอร์เดียวกับ index.html) -->
     <audio id="sfx-drop" src="drop.mp3" preload="auto"></audio>
     <audio id="sfx-merge" src="merge.mp3" preload="auto"></audio>
     <audio id="sfx-gameover" src="gameover.mp3" preload="auto"></audio>
@@ -458,9 +455,7 @@
   </script>
 
   <script>
-    /* =====================
-       🔊 SOUND SYSTEM
-    ====================== */
+
     let isMuted = false;
 
     function playSfx(id, volume = 0.8) {
@@ -588,7 +583,6 @@
 
       const wallOptions = { isStatic: true, friction: 0.8, restitution: 0.2 };
 
-      // ✅ กำแพง 4 ด้าน + เพดาน (กันหลุดด้านบน)
       Matter.World.add(engine.world, [
         Matter.Bodies.rectangle(GAME_WIDTH / 2, GAME_HEIGHT + 15, GAME_WIDTH, 30, wallOptions), // bottom
         Matter.Bodies.rectangle(-15, GAME_HEIGHT / 2, 30, GAME_HEIGHT, wallOptions), // left
@@ -877,7 +871,7 @@
       Matter.Body.setVelocity(nextPlanetBody, avgVel);
       Matter.World.add(engine.world, nextPlanetBody);
 
-      playSfx("sfx-merge", 0.85);
+      playSfx("sfx-merge", 0.5);
 
       score += PLANETS[nextIdx].score;
       document.getElementById("score").innerText = score;
@@ -888,7 +882,6 @@
       }, 400);
     }
 
-    // ✅ Game Over: หลุดบนจริง ๆ หรือ ล้นโซนบนค้าง
     function checkGameOver() {
       if (isGameOver) return;
       if (document.getElementById("ui-layer").style.opacity !== "1") return;
@@ -955,14 +948,13 @@
           document.getElementById("surrender-btn").style.display = "flex";
           document.getElementById("mute-btn").style.display = "flex";
 
-          // ✅ เริ่มเพลงหลัง user interaction (กด Start)
           startBgm(0.35);
 
           spawnPlanet();
         };
     };
 
-    // ปุ่มปิด/เปิดเสียง
+    
     document.getElementById("mute-btn").onclick = () => {
       setMute(!isMuted);
     };
