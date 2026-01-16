@@ -370,8 +370,8 @@
       </div>
     </div>
 
-    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">🏳️</button>
-    <button id="mute-btn" title="ปิด/เปิดเสียง">📢</button>
+    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">💣</button>
+    <button id="mute-btn" title="ปิด/เปิดเสียง">🔈</button>
 
     <div id="guide" class="guide-line"></div>
     <div id="current-planet-name"></div>
@@ -494,7 +494,7 @@
     function setMute(nextMuted) {
       isMuted = nextMuted;
       const btn = document.getElementById("mute-btn");
-      if (btn) btn.textContent = isMuted ? "🔇" : "🔊";
+      if (btn) btn.textContent = isMuted ? "🔇" : "🔈";
       if (isMuted) stopBgm();
       else startBgm(0.35);
     }
