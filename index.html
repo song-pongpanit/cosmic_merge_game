@@ -404,7 +404,7 @@
       <button class="primary-btn" onclick="closeLeaderboard()">ปิด</button>
     </div>
 
-    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">⚐</button>
+    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">💣</button>
     <button id="mute-btn" title="ปิด/เปิดเสียง">🔊</button>
     <button id="leaderboard-btn" title="อันดับ TOP 10">🏆</button>
 
@@ -995,7 +995,7 @@
         }
 
         // ล้นโซนบนแล้วนิ่งเกิน 2 วิ
-        if (body.position.y < 110 && Math.abs(body.velocity.y) < 0.1) {
+        if (body.position.y < 70 && Math.abs(body.velocity.y) < 0.1) {
           if (!body.gameOverTimer) body.gameOverTimer = Date.now();
           if (Date.now() - body.gameOverTimer > 2000) {
             triggerGameOver();
