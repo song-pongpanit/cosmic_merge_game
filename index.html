@@ -183,6 +183,29 @@
     }
     #mute-btn:hover { transform: scale(1.1); filter: brightness(1.2); }
 
+    /* ✅ ปุ่ม Leaderboard (หน้าเริ่มต้น) */
+    #leaderboard-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px; /* เว้นจากปุ่ม mute */
+      pointer-events: auto;
+      background: linear-gradient(135deg, #6644ff, #8844ff);
+      border: none;
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 20px;
+      display: flex; /* โชว์ตั้งแต่หน้าเริ่มต้น */
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 120; /* สูงกว่า overlay login bg */
+      box-shadow: 0 4px 15px rgba(100, 50, 255, 0.4);
+    }
+    #leaderboard-btn:hover { transform: scale(1.1); filter: brightness(1.2); }
+
     .overlay-screen {
       position: absolute;
       top: 0; left: 0;
@@ -370,8 +393,20 @@
       </div>
     </div>
 
-    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">💣</button>
-    <button id="mute-btn" title="ปิด/เปิดเสียง">🔈</button>
+    <!-- ✅ Leaderboard Overlay (หน้าเริ่มต้น) -->
+    <div id="leaderboard-screen" class="overlay-screen" style="display:none; background: rgba(5, 5, 20, 0.95);">
+      <h2 style="margin: 0; color: #aaaaff; font-size: 22px;">🏆 ทำเนียบ TOP 10 นักสำรวจ</h2>
+
+      <div class="leaderboard" id="leaderboard-preview">
+        <div style="text-align: center; padding: 10px;">กำลังโหลดตารางอันดับ...</div>
+      </div>
+
+      <button class="primary-btn" onclick="closeLeaderboard()">ปิด</button>
+    </div>
+
+    <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">⚐</button>
+    <button id="mute-btn" title="ปิด/เปิดเสียง">🔊</button>
+    <button id="leaderboard-btn" title="อันดับ TOP 10">🏆</button>
 
     <div id="guide" class="guide-line"></div>
     <div id="current-planet-name"></div>
@@ -429,6 +464,28 @@
       }
     };
 
+    // ✅ ปรับให้ render ได้ทั้ง gameover + หน้าเริ่มต้น
+    function renderLeaderboardTo(el, topScores) {
+      if (!el) return;
+
+      el.innerHTML =
+        '<div style="text-align: center; color: #aaaaff; margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">ทำเนียบ TOP 10 นักสำรวจ</div>';
+
+      if (!topScores || topScores.length === 0) {
+        el.innerHTML += '<div style="text-align:center; padding:10px;">ยังไม่มีข้อมูลอันดับ</div>';
+        return;
+      }
+
+      topScores.forEach((s, i) => {
+        const item = document.createElement("div");
+        item.className = "leaderboard-item";
+        const isMe = s.uid === window.gameDb.auth.currentUser?.uid;
+        if (isMe) item.classList.add("item-me");
+        item.innerHTML = `<span>${i + 1}. ${s.name || "Unknown"}</span> <span>${s.score}</span>`;
+        el.appendChild(item);
+      });
+    }
+
     window.listenToLeaderboard = () => {
       const { db, appId } = window.gameDb;
       const q = collection(db, "artifacts", appId, "public", "data", "scores");
@@ -441,23 +498,10 @@
           allScores.sort((a, b) => b.score - a.score);
           const topScores = allScores.slice(0, 10);
 
-          const list = document.getElementById("leaderboard-list");
-          list.innerHTML =
-            '<div style="text-align: center; color: #aaaaff; margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">ทำเนียบ TOP 10 นักสำรวจ</div>';
-
-          if (topScores.length === 0) {
-            list.innerHTML += '<div style="text-align:center; padding:10px;">ยังไม่มีข้อมูลอันดับ</div>';
-            return;
-          }
-
-          topScores.forEach((s, i) => {
-            const item = document.createElement("div");
-            item.className = "leaderboard-item";
-            const isMe = s.uid === window.gameDb.auth.currentUser?.uid;
-            if (isMe) item.classList.add("item-me");
-            item.innerHTML = `<span>${i + 1}. ${s.name || "Unknown"}</span> <span>${s.score}</span>`;
-            list.appendChild(item);
-          });
+          // gameover list
+          renderLeaderboardTo(document.getElementById("leaderboard-list"), topScores);
+          // login preview list
+          renderLeaderboardTo(document.getElementById("leaderboard-preview"), topScores);
         },
         (err) => {
           console.error("Leaderboard Snapshot Error:", err);
@@ -494,10 +538,21 @@
     function setMute(nextMuted) {
       isMuted = nextMuted;
       const btn = document.getElementById("mute-btn");
-      if (btn) btn.textContent = isMuted ? "🔇" : "🔈";
+      if (btn) btn.textContent = isMuted ? "🔇" : "🔊";
       if (isMuted) stopBgm();
       else startBgm(0.35);
     }
+
+    // ✅ Leaderboard overlay open/close (หน้าเริ่มต้น)
+    function openLeaderboard() {
+      const lb = document.getElementById("leaderboard-screen");
+      if (lb) lb.style.display = "flex";
+    }
+    function closeLeaderboard() {
+      const lb = document.getElementById("leaderboard-screen");
+      if (lb) lb.style.display = "none";
+    }
+    window.closeLeaderboard = closeLeaderboard; // ให้ onclick ใน HTML ใช้ได้
 
     /* =====================
        ⭐ STAR CURSOR (Twinkle)
@@ -673,6 +728,10 @@
 
       setInterval(checkGameOver, 250);
       setupNextPlanet();
+
+      // ✅ ปุ่ม leaderboard เปิด overlay ได้ตั้งแต่หน้าเริ่มต้น
+      const lbBtn = document.getElementById("leaderboard-btn");
+      if (lbBtn) lbBtn.onclick = openLeaderboard;
     }
 
     function drawPlanet(ctx, x, y, angle, type, opacity = 1) {
@@ -960,7 +1019,11 @@
       document.getElementById("guide").style.display = "none";
       document.getElementById("surrender-btn").style.display = "none";
       document.getElementById("mute-btn").style.display = "none";
+      document.getElementById("leaderboard-btn").style.display = "none";
       document.getElementById("current-planet-name").style.display = "none";
+
+      // ถ้า leaderboard overlay เปิดอยู่ ให้ปิด
+      closeLeaderboard();
 
       document.getElementById("game-over").style.display = "flex";
       document.getElementById("final-score").innerText = score;
@@ -987,6 +1050,9 @@
           document.getElementById("guide").style.display = "block";
           document.getElementById("surrender-btn").style.display = "flex";
           document.getElementById("mute-btn").style.display = "flex";
+
+          // ✅ ถ้าต้องการให้ปุ่ม leaderboard อยู่แค่หน้าเริ่มต้น ให้ซ่อนไว้ตอนเข้าเกม
+          document.getElementById("leaderboard-btn").style.display = "none";
 
           startBgm(0.35);
           showStarCursor();
