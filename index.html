@@ -43,6 +43,8 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
+      user-select: none; /* กันเลือกข้อความตอนลาก */
+      -webkit-user-select: none;
     }
 
     #game-container {
@@ -54,7 +56,11 @@
       border-radius: 24px;
       overflow: hidden;
       background: #050515;
-      cursor: none; /* ซ่อน cursor ปกติ */
+      cursor: none;
+
+      user-select: none; /* กันเลือกข้อความตอนลาก */
+      -webkit-user-select: none;
+      touch-action: none; /* ✅ สำคัญ: กัน scroll/zoom gesture บนมือถือ */
     }
 
     canvas { display: block; }
@@ -247,7 +253,7 @@
       display: flex;
       justify-content: space-between;
       padding: 6px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
 
     .item-me { color: #ffff00; font-weight: bold; }
@@ -553,6 +559,9 @@
       stars = [],
       playerName = "Unknown Explorer",
       lastMouseX = 200;
+
+    // ✅ สถานะ "กำลังเล็ง" (กดค้าง/แตะค้าง)
+    let isAiming = false;
 
     async function initFirebaseLocal() {
       const { auth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.gameDb;
@@ -954,6 +963,7 @@
       stopBgm();
 
       isGameOver = true;
+      isAiming = false;
       hideStarCursor();
 
       document.getElementById("ui-layer").style.opacity = "0";
@@ -999,32 +1009,108 @@
       setMute(!isMuted);
     };
 
+    // ===========================
+    // ✅ Input: Mouse + Touch Aim
+    // ===========================
     const containerElem = document.getElementById("game-container");
 
-    // แสดง/ซ่อน cursor ดาว เมื่อเข้า/ออกพื้นที่เกม
-    containerElem.addEventListener("mouseenter", () => {
-      if (!isGameOver && document.getElementById("ui-layer").style.opacity === "1") showStarCursor();
-    });
-    containerElem.addEventListener("mouseleave", () => hideStarCursor());
+    function canInteractNow(){
+      if (isGameOver) return false;
+      if (document.getElementById("ui-layer").style.opacity !== "1") return false;
+      if (!currentPlanet || !canDrop) return false;
+      return true;
+    }
 
-    containerElem.addEventListener("mousemove", (e) => {
+    function getClientXY(e){
+      if (e.touches && e.touches.length) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      if (e.changedTouches && e.changedTouches.length) {
+        return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function updateCursorAndAim(e){
       const rect = containerElem.getBoundingClientRect();
-      lastMouseX = e.clientX - rect.left;
+      const { x: cx, y: cy } = getClientXY(e);
 
-      // ⭐ อัปเดตตำแหน่ง cursor ดาว
-      targetX = e.clientX - rect.left;
-      targetY = e.clientY - rect.top;
+      lastMouseX = cx - rect.left;
+
+      // star cursor
+      targetX = cx - rect.left;
+      targetY = cy - rect.top;
       if (!cursorRaf) cursorRaf = requestAnimationFrame(animateStarCursor);
 
-      if (!currentPlanet || isGameOver) return;
+      // move planet only while aiming
+      if (!currentPlanet || isGameOver || !isAiming) return;
 
       const radius = PLANETS[currentPlanet.index].radius;
       const x = Math.max(radius, Math.min(GAME_WIDTH - radius, lastMouseX));
       currentPlanet.x = x;
       document.getElementById("guide").style.left = x + "px";
+    }
+
+    // เมาส์: เข้า/ออกพื้นที่เกม
+    containerElem.addEventListener("mouseenter", () => {
+      if (!isGameOver && document.getElementById("ui-layer").style.opacity === "1") showStarCursor();
+    });
+    containerElem.addEventListener("mouseleave", () => {
+      hideStarCursor();
+      isAiming = false;
     });
 
-    containerElem.addEventListener("click", dropPlanet);
+    // Mouse
+    containerElem.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      if (!canInteractNow()) return;
+      isAiming = true;
+      updateCursorAndAim(e);
+    });
+
+    containerElem.addEventListener("mousemove", (e) => {
+      updateCursorAndAim(e);
+    });
+
+    containerElem.addEventListener("mouseup", (e) => {
+      if (!isAiming) return;
+      e.preventDefault();
+      isAiming = false;
+      dropPlanet();
+    });
+
+    // Touch (มือถือ) — ต้อง passive:false เพื่อให้ preventDefault ใช้ได้
+    containerElem.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      showStarCursor(); // มือถือไม่มี mouseenter
+      if (!canInteractNow()) return;
+      isAiming = true;
+      updateCursorAndAim(e);
+    }, { passive: false });
+
+    containerElem.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      updateCursorAndAim(e);
+    }, { passive: false });
+
+    containerElem.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      if (!isAiming) return;
+      isAiming = false;
+      dropPlanet();
+    }, { passive: false });
+
+    containerElem.addEventListener("touchcancel", (e) => {
+      e.preventDefault();
+      isAiming = false;
+      hideStarCursor();
+    }, { passive: false });
+
+    // กันกรณีปล่อยเมาส์นอกกรอบ
+    window.addEventListener("mouseup", () => {
+      if (!isAiming) return;
+      isAiming = false;
+    });
 
     window.onload = init;
     window.triggerGameOver = triggerGameOver;
