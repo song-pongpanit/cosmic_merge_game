@@ -995,7 +995,7 @@
         }
 
         // ล้นโซนบนแล้วนิ่งเกิน 2 วิ
-        if (body.position.y < 70 && Math.abs(body.velocity.y) < 0.1) {
+        if (body.position.y < 50 && Math.abs(body.velocity.y) < 0.1) {
           if (!body.gameOverTimer) body.gameOverTimer = Date.now();
           if (Date.now() - body.gameOverTimer > 2000) {
             triggerGameOver();
