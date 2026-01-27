@@ -366,6 +366,64 @@
       50%  { transform: scale(1.25); filter: brightness(1.35); }
       100% { transform: scale(0.9); filter: brightness(0.9); }
     }
+  
+    /* 🛍️ SHOP BUTTON */
+    #shop-btn {
+      position: absolute;
+      top: 50px; /* ใต้ surrender */
+      left: 10px;
+      pointer-events: auto;
+      background: linear-gradient(135deg, #7a4cff, #b44cff);
+      border: none;
+      color: white;
+      width: 32px; height: 32px;
+      border-radius: 20px;
+      display: none; /* เริ่มเกมค่อยโชว์ */
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 20;
+      box-shadow: 0 4px 15px rgba(160, 80, 255, 0.5);
+    }
+    #shop-btn:hover { transform: scale(1.1); filter: brightness(1.2); }
+
+    /* 🧊 SHOP OVERLAY (Frosted Glass) */
+    .shop-panel{
+      width: 100%;
+      max-width: 320px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(14px);
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-sizing: border-box;
+    }
+    .shop-item{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background: rgba(255,255,255,0.05);
+      padding: 12px;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+    .shop-item small{ color: rgba(255,255,255,0.55); font-size: 11px; }
+    .shop-item button{
+      background: linear-gradient(135deg,#6644ff,#aa66ff);
+      border:none;
+      color:white;
+      padding: 6px 14px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-family: "Kanit", sans-serif;
+      font-weight: 600;
+      min-width: 64px;
+    }
+    .shop-item button:disabled{ opacity:0.4; cursor:not-allowed; }
+
   </style>
 
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;600&display=swap" rel="stylesheet" />
@@ -405,6 +463,8 @@
     </div>
 
     <button id="surrender-btn" title="ยอมแพ้" onclick="triggerGameOver()" style="display: none;">💣</button>
+    <button id="shop-btn" title="ร้านค้า">🛍️</button>
+
     <button id="mute-btn" title="ปิด/เปิดเสียง">🔊</button>
     <button id="leaderboard-btn" title="อันดับ TOP 10">🏆</button>
 
@@ -435,6 +495,31 @@
       </div>
 
       <button class="primary-btn" onclick="location.reload()">กลับสู่หน้าหลัก</button>
+    </div>
+
+
+    <!-- 🛍️ Shop Overlay -->
+    <div id="shop-overlay" class="overlay-screen" style="display:none; background: rgba(5, 5, 20, 0.65);">
+      <div class="shop-panel">
+        <h2 style="margin: 0 0 12px; color: #aaaaff; font-size: 22px;">🚀 ร้านค้าอวกาศ</h2>
+
+        <div class="shop-item" data-item="gravity" data-price="100">
+          <span>🌌 Zero Gravity<br><small>แรงโน้มถ่วง 0.4 (3 ครั้ง)</small></span>
+          <button type="button">100</button>
+        </div>
+
+        <div class="shop-item" data-item="reroll" data-price="300">
+          <span>🔄 Reroll<br><small>เปลี่ยนดาวถัดไป</small></span>
+          <button type="button">300</button>
+        </div>
+
+        <div class="shop-item" data-item="bomb" data-price="500">
+          <span>💥 Supernova Bomb<br><small>คลิกลบดาว 1 ดวง</small></span>
+          <button type="button">500</button>
+        </div>
+
+        <button id="shop-close-btn" class="primary-btn" type="button">ปิด</button>
+      </div>
     </div>
 
     <!-- ⭐ Star Cursor -->
@@ -551,6 +636,108 @@
       if (lb) lb.style.display = "none";
     }
     window.closeLeaderboard = closeLeaderboard; // ให้ onclick ใน HTML ใช้ได้
+
+
+    /* =====================
+       🛍️ SHOP + ITEMS
+    ====================== */
+    let gravityUses = 0;     // Zero Gravity uses remaining
+    let bombMode = false;    // Supernova Bomb targeting mode
+
+    function openShop(e){
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      const ov = document.getElementById("shop-overlay");
+      if (ov) ov.style.display = "flex";
+      // ระหว่างเปิดร้าน ให้ซ่อน cursor ดาวไว้ไม่ให้กวนสายตา
+      hideStarCursor();
+    }
+
+    function closeShop(e){
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      const ov = document.getElementById("shop-overlay");
+      if (ov) ov.style.display = "none";
+      // ถ้ายังไม่ game over ให้กลับมาโชว์ cursor ดาว
+      if (!isGameOver && document.getElementById("ui-layer").style.opacity === "1") showStarCursor();
+    }
+    window.closeShop = closeShop;
+
+    function buyGravity(){
+      closeShop();
+
+      gravityUses = 3;
+    }
+    function buyReroll(){
+      rerollUsingPreview();
+    }
+    function buyBomb(){
+
+      closeShop();
+
+      bombMode = true;
+
+      containerElem.style.cursor = "crosshair";
+    }
+
+    function setupShopSystem(){
+      const shopBtn = document.getElementById("shop-btn");
+      const ov = document.getElementById("shop-overlay");
+      const closeBtn = document.getElementById("shop-close-btn");
+
+      if (shopBtn) {
+        shopBtn.addEventListener("click", openShop);
+        // กันคลิกทะลุไปปล่อยดาว
+        shopBtn.addEventListener("mousedown", (e)=>e.stopPropagation());
+      }
+
+      // กันคลิกทะลุใน overlay ทั้งหมด
+      if (ov) {
+        ov.addEventListener("click", (e)=>{ e.stopPropagation(); });
+        ov.addEventListener("mousedown", (e)=>{ e.stopPropagation(); });
+      }
+      if (closeBtn) closeBtn.addEventListener("click", closeShop);
+
+      // กันคลิกทะลุปุ่มอื่น ๆ ที่เป็น UI
+      ["surrender-btn","mute-btn","leaderboard-btn"].forEach((id)=>{
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("click", (e)=>e.stopPropagation());
+        el.addEventListener("mousedown", (e)=>e.stopPropagation());
+      });
+
+      // ปุ่มซื้อ + ล็อคตามคะแนน
+      const items = document.querySelectorAll(".shop-item");
+      items.forEach((item)=>{
+        const btn = item.querySelector("button");
+        const price = Number(item.dataset.price || 0);
+        const type = (item.dataset.item || "").toLowerCase();
+
+        const update = () => {
+          if (!btn) return;
+          btn.disabled = score < price;
+          btn.textContent = String(price);
+        };
+
+        update();
+
+        btn?.addEventListener("click", (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          if (score < price) return;
+
+          score -= price;
+          document.getElementById("score").innerText = score;
+
+          if (type === "gravity") buyGravity();
+          if (type === "reroll") buyReroll();
+          if (type === "bomb") buyBomb();
+
+          update();
+        });
+
+        // อัปเดตสถานะปุ่มเรื่อย ๆ (คะแนนเปลี่ยนจาก merge)
+        setInterval(update, 250);
+      });
+    }
 
     /* =====================
        ⭐ STAR CURSOR (Twinkle)
@@ -730,6 +917,9 @@
       // ✅ ปุ่ม leaderboard เปิด overlay ได้ตั้งแต่หน้าเริ่มต้น
       const lbBtn = document.getElementById("leaderboard-btn");
       if (lbBtn) lbBtn.onclick = openLeaderboard;
+
+      // 🛍️ Shop system setup
+      setupShopSystem();
     }
 
     function drawPlanet(ctx, x, y, angle, type, opacity = 1) {
@@ -915,9 +1105,40 @@
       setupNextPlanet();
     }
 
+    function rerollUsingPreview() {
+    if (isGameOver) return;
+
+    if (!currentPlanet) return;
+
+    currentPlanet.index = nextPlanetIndex;
+
+    document.getElementById("current-planet-name").innerText = PLANETS[currentPlanet.index].name;
+
+    const radius = PLANETS[currentPlanet.index].radius;
+    const clampedX = Math.max(radius, Math.min(GAME_WIDTH - radius, currentPlanet.x));
+    currentPlanet.x = clampedX;
+    document.getElementById("guide").style.left = clampedX + "px";
+
+    setupNextPlanet();
+    }
+
     function dropPlanet() {
       if (!currentPlanet || !canDrop || isGameOver) return;
 
+      // 🌌 Zero Gravity: ลดแรงโน้มถ่วงชั่วคราวต่อการปล่อยดาว (3 ครั้ง)
+      if (gravityUses > 0) {
+        engine.world.gravity.y = 0.4;
+        gravityUses--;
+        if (gravityUses === 0) {
+          // กลับสู่ค่าปกติแบบเนียน ๆ
+          setTimeout(() => { engine.world.gravity.y = 1.2; }, 500);
+        }
+      } else {
+        // ค่าปกติของเกม
+        engine.world.gravity.y = 1.2;
+      }
+
+      
       playSfx("sfx-drop", 0.6);
 
       const newBody = Matter.Bodies.circle(
@@ -1018,6 +1239,8 @@
       document.getElementById("surrender-btn").style.display = "none";
       document.getElementById("mute-btn").style.display = "none";
       document.getElementById("leaderboard-btn").style.display = "none";
+      document.getElementById("shop-btn").style.display = "none";
+      closeShop();
       document.getElementById("current-planet-name").style.display = "none";
 
       // ถ้า leaderboard overlay เปิดอยู่ ให้ปิด
@@ -1048,6 +1271,7 @@
           document.getElementById("guide").style.display = "block";
           document.getElementById("surrender-btn").style.display = "flex";
           document.getElementById("mute-btn").style.display = "flex";
+          document.getElementById("shop-btn").style.display = "flex";
 
           // ✅ ถ้าต้องการให้ปุ่ม leaderboard อยู่แค่หน้าเริ่มต้น ให้ซ่อนไว้ตอนเข้าเกม
           document.getElementById("leaderboard-btn").style.display = "none";
@@ -1087,7 +1311,38 @@
       document.getElementById("guide").style.left = x + "px";
     });
 
-    containerElem.addEventListener("click", dropPlanet);
+    containerElem.addEventListener("click", (e) => {
+      // ถ้าเปิดร้านอยู่ ห้ามคลิกทะลุไปปล่อยดาว
+      const shopOv = document.getElementById("shop-overlay");
+      if (shopOv && shopOv.style.display === "flex") return;
+
+      // ถ้าคลิกบนปุ่ม UI ใด ๆ ให้ไม่ทำอะไร
+      if (e.target && e.target.closest && e.target.closest("button")) return;
+
+      // 💥 Supernova Bomb mode
+      if (bombMode) {
+        const rect = containerElem.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const bodies = Matter.Composite.allBodies(engine.world);
+        for (const b of bodies) {
+          if (!b.label?.startsWith("planet_")) continue;
+          const r = b.circleRadius || 0;
+          const dx = mx - b.position.x;
+          const dy = my - b.position.y;
+          if (Math.sqrt(dx * dx + dy * dy) < r) {
+            Matter.World.remove(engine.world, b);
+            bombMode = false;
+            containerElem.style.cursor = "none";
+            break;
+          }
+        }
+        return;
+      }
+
+      dropPlanet();
+    });
 
     window.onload = init;
     window.triggerGameOver = triggerGameOver;
