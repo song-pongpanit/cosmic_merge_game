@@ -447,16 +447,23 @@
   </div>
 
   <script type="module">
-    import { collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { collection, addDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+    const toNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    // ✅ SAVE SCORE (เรียกจากเกม: window.saveScoreToCloud(score, name))
     window.saveScoreToCloud = async (scoreVal, nameVal) => {
       const { db, appId, auth } = window.gameDb;
       if (!auth.currentUser) return;
+
       try {
         await addDoc(collection(db, "artifacts", appId, "public", "data", "scores"), {
           uid: auth.currentUser.uid,
-          name: nameVal,
-          score: scoreVal,
+          name: (nameVal ?? "").toString().trim() || "Unknown",
+          score: toNum(scoreVal),
           timestamp: Date.now()
         });
       } catch (e) {
@@ -464,7 +471,7 @@
       }
     };
 
-    // ✅ ปรับให้ render ได้ทั้ง gameover + หน้าเริ่มต้น
+    // ✅ render ได้ทั้ง gameover + หน้าเริ่มต้น
     function renderLeaderboardTo(el, topScores) {
       if (!el) return;
 
@@ -481,32 +488,23 @@
         item.className = "leaderboard-item";
         const isMe = s.uid === window.gameDb.auth.currentUser?.uid;
         if (isMe) item.classList.add("item-me");
-        item.innerHTML = `<span>${i + 1}. ${s.name || "Unknown"}</span> <span>${s.score}</span>`;
+        item.innerHTML = `<span>${i + 1}. ${s.name || "Unknown"}</span> <span>${toNum(s.score)}</span>`;
         el.appendChild(item);
       });
     }
 
+    // ✅ LISTEN: ให้ Firestore จัดอันดับ (Top10) เพื่อให้ทุกเครื่องเห็นเหมือนกัน
     window.listenToLeaderboard = () => {
       const { db, appId } = window.gameDb;
-      const q = collection(db, "artifacts", appId, "public", "data", "scores");
 
-      onSnapshot(
-        q,
-        (snapshot) => {
-          let allScores = [];
-          snapshot.forEach((doc) => allScores.push(doc.data()));
-          allScores.sort((a, b) => b.score - a.score);
-          const topScores = allScores.slice(0, 10);
+      const ref = collection(db, "artifacts", appId, "public", "data", "scores");
+      const q = query(ref, orderBy("score", "desc"), limit(10));
 
-          // gameover list
-          renderLeaderboardTo(document.getElementById("leaderboard-list"), topScores);
-          // login preview list
-          renderLeaderboardTo(document.getElementById("leaderboard-preview"), topScores);
-        },
-        (err) => {
-          console.error("Leaderboard Snapshot Error:", err);
-        }
-      );
+      onSnapshot(q, (snapshot) => {
+        const topScores = snapshot.docs.map((d) => d.data());
+        renderLeaderboardTo(document.getElementById("leaderboard-list"), topScores);
+        renderLeaderboardTo(document.getElementById("leaderboard-preview"), topScores);
+      });
     };
   </script>
 
@@ -995,7 +993,7 @@
         }
 
         // ล้นโซนบนแล้วนิ่งเกิน 2 วิ
-        if (body.position.y < 50 && Math.abs(body.velocity.y) < 0.1) {
+        if (body.position.y < 70 && Math.abs(body.velocity.y) < 0.1) {
           if (!body.gameOverTimer) body.gameOverTimer = Date.now();
           if (Date.now() - body.gameOverTimer > 2000) {
             triggerGameOver();
