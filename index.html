@@ -26,7 +26,7 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const appId = typeof __app_id !== "undefined" ? __app_id : "cosmic-merge-v1";
+    const appId = typeof __app_id !== "undefined" ? __app_id : "cosmic-merge-v2";
 
     window.gameDb = { db, appId, auth, signInWithCustomToken, signInAnonymously, onAuthStateChanged };
   </script>
